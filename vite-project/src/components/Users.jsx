@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import useAxiosPrivate from "../hooks/useAxiosPrivate";
+import {useNavigate, useLocation} from 'react-router-dom'
 
 const Users = () => {
     const [users, setUsers] = useState([]);
     const axiosPrivate = useAxiosPrivate();
+    const navigate = useNavigate();
+    const location = useLocation(); 
 
     useEffect(() => {
         let isMounted = true; 
@@ -14,12 +17,16 @@ const Users = () => {
                 const response = await axiosPrivate.get('/users', {
                     signal: controller.signal, 
                 });
-                console.log(response.data);
                 if (isMounted) {
                     setUsers(response.data); 
                 }
             } catch (err) {
+                if (err.name === 'CanceledError') {
+                    console.log("Request canceled:", err.message);
+                    return; // Do nothing if the request was canceled
+                }
                 console.error(err); 
+                navigate('/login', {state:{from: location}, replace: true});
             }
         };
 

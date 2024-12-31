@@ -144,7 +144,7 @@ async def get_users(request:Request, db: Session = Depends(get_db)):
     return users
 
 
-@app.get('/refresh',response_model= Token)
+@app.get('/refresh')
 async def refresh(request: Request, response: Response, db: Session= Depends(get_db)):
     refresh_token = request.cookies.get("refresh_token")
 
@@ -175,4 +175,4 @@ async def refresh(request: Request, response: Response, db: Session= Depends(get
     db.commit()
     
 
-    return {"access_token": access_token, "token_type":"bearer"}
+    return {"access_token": access_token, "role" : user.role}

@@ -16,10 +16,10 @@ const Login = () =>{
     const [user, setUser] = useState('');
     const [pwd, setPwd] = useState('');
     const [errMsg, setErrMsg] = useState('');
-    
 
     useEffect(() =>{
         userRef.current.focus();
+        
     },[]);
 
     useEffect(()=>{
