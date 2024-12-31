@@ -7,6 +7,8 @@ from database import get_db,Base
 from models import UserInDbORM
 from schemas import *
 import jwt
+from jwt.exceptions import ExpiredSignatureError
+from jose import JWTError
 from passlib.context import CryptContext
 from datetime import timedelta,datetime     
 
@@ -110,9 +112,37 @@ async def create_account(username: str = Form(...),
     db.refresh(new_user)
     return JSONResponse(status_code= status.HTTP_201_CREATED, content= {"message":"user registered successfully"})
 
-@app.get('/users')
+@app.get('/users',response_model = list[UserInDB])
 async def get_users(request:Request, db: Session = Depends(get_db)):
-    pass
+    try:
+         # Get Authorization header
+        access_token = request.headers.get("Authorization")
+        if not access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Access token missing!"
+            )
+
+        # Validate Bearer token format
+        if not access_token.startswith("Bearer "):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Authorization header format!"
+            )
+        
+        token = access_token.split(" ")[1]
+        decoded_access_token = jwt.decode(token,SECRET_KEY, algorithms= [ALGORITHM])
+
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token has expired")
+
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail= "Error decoding token!")
+    
+    users = db.query(UserInDbORM).all()
+
+    return users
+
 
 @app.get('/refresh',response_model= Token)
 async def refresh(request: Request, response: Response, db: Session= Depends(get_db)):
@@ -124,17 +154,18 @@ async def refresh(request: Request, response: Response, db: Session= Depends(get
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms= [ALGORITHM])
         username = payload.get("sub")
-
+        print(refresh_token)
+        print(username)
         if not username:
-            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED,detail="Invalid token username is missing")
+            raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED,details="Invalid token username is missing")
         
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, details="Invalid token")
 
-    user = db.query(UserInDbORM).filter(username == UserInDbORM.username).first()
+    user = db.query(UserInDbORM).filter(UserInDbORM.username == username).first()
 
     if not user:
-        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED, detail= "User not found")
+        raise HTTPException(status_code = status.HTTP_401_UNAUTHORIZED, details= "User not found")
 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token({"sub":user.username}, access_token_expires)
