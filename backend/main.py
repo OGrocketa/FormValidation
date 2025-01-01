@@ -154,8 +154,6 @@ async def refresh(request: Request, response: Response, db: Session= Depends(get
     try:
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms= [ALGORITHM])
         username = payload.get("sub")
-        print(refresh_token)
-        print(username)
         if not username:
             raise HTTPException(status_code= status.HTTP_401_UNAUTHORIZED,details="Invalid token username is missing")
         
@@ -176,3 +174,26 @@ async def refresh(request: Request, response: Response, db: Session= Depends(get
     
 
     return {"access_token": access_token, "role" : user.role}
+
+
+@app.post('/logout')
+async def logout(request: Request, response: Response, db: Session = Depends(get_db)):
+    # Retrieve the refresh_token from cookies
+    refresh_token = request.cookies.get('refresh_token')
+
+    if not refresh_token:
+        # No refresh token: Return a 204 No Content response
+        response.status_code = 204
+        return 
+
+    # Delete the refresh_token cookie
+    response.set_cookie(
+        key="refresh_token",
+        value= "",
+        httponly = True,
+        secure = True,
+        samesite = "none",
+    )
+
+    # Return a success message
+    return {"message" : "Logged out!"}
